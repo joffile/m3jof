@@ -20,14 +20,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android 34
-        run: |
-          printf 'y\ny\ny\ny\ny\ny\ny\n' | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0"
-
       - name: Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
