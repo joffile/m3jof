@@ -26,9 +26,12 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 
 class Track {
@@ -86,6 +89,15 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle saved) {
         super.onCreate(saved);
+        installCrashCatcher();
+
+        String prev = getSharedPreferences("crash", MODE_PRIVATE).getString("err", null);
+        if (prev != null) {
+            getSharedPreferences("crash", MODE_PRIVATE).edit().remove("err").commit();
+            showText("В прошлый раз приложение упало. Вот текст ошибки:\n\n" + prev);
+            return;
+        }
+
         getWindow().setStatusBarColor(Color.parseColor(BG));
         getWindow().setNavigationBarColor(Color.parseColor(BG));
 
@@ -220,9 +232,35 @@ public class MainActivity extends Activity {
         }
     }
 
+    void installCrashCatcher() {
+        final Thread.UncaughtExceptionHandler old = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler((th, ex) -> {
+            try {
+                StringWriter sw = new StringWriter();
+                ex.printStackTrace(new PrintWriter(sw));
+                String s = sw.toString();
+                if (s.length() > 3500) s = s.substring(0, 3500);
+                getSharedPreferences("crash", MODE_PRIVATE).edit().putString("err", s).commit();
+            } catch (Throwable ignored) {
+            }
+            if (old != null) old.uncaughtException(th, ex);
+        });
+    }
+
+    void showText(String s) {
+        ScrollView sv = new ScrollView(this);
+        sv.setBackgroundColor(Color.parseColor(BG));
+        TextView t = text(s, 14, "#FFFFFF", false);
+        t.setPadding(dp(16), dp(40), dp(16), dp(16));
+        t.setTextIsSelectable(true);
+        sv.addView(t);
+        setContentView(sv);
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
+        if (permBtn == null) return;
         boolean ok = hasPerm();
         permBtn.setVisibility(ok ? View.GONE : View.VISIBLE);
         if (ok && tracks.isEmpty()) {
@@ -240,7 +278,7 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQ) {
+        if (requestCode == REQ && permBtn != null) {
             if (hasPerm()) {
                 loadTracks();
             } else {
